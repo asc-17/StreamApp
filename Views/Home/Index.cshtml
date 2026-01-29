@@ -1,0 +1,58 @@
+﻿@model StreamApp.ViewModels.HomeViewModel
+
+@{
+    ViewData["Title"] = "Home";
+}
+
+<div class="home-container">
+    @if (Model.Movies.Any())
+    {
+        <div class="media-row">
+            <h2 class="row-title">Movies</h2>
+            <div class="row-scroller">
+                @foreach (var movie in Model.Movies)
+                {
+                    <a href="@Url.Action("Details", "Home", new { id = movie.Title })" class="media-card" tabindex="0">
+                        @{
+                            var mPoster = !string.IsNullOrEmpty(movie.PosterPath) ? Url.Action("Image", "Video", new { path = movie.PosterPath }) : "/media/poster.jpg";
+                        }
+                        <img src="@mPoster" alt="@movie.Title" onerror="this.src='/media/poster.jpg'" />
+                        
+                        <div class="card-info">
+                            <span class="media-title">@movie.Title @(movie.Year > 0 ? $"({movie.Year})" : "")</span>
+                        </div>
+                    </a>
+                }
+            </div>
+        </div>
+    }
+
+    @if (Model.Series.Any())
+    {
+         <div class="media-row">
+            <h2 class="row-title">Series</h2>
+            <div class="row-scroller">
+                @foreach (var series in Model.Series)
+                {
+                     <a href="@Url.Action("Details", "Series", new { id = series.Title })" class="media-card" tabindex="0">
+                        @{
+                            var sPoster = !string.IsNullOrEmpty(series.PosterPath) ? Url.Action("Image", "Video", new { path = series.PosterPath }) : "/media/poster.jpg";
+                        }
+                        <img src="@sPoster" alt="@series.Title" onerror="this.src='/media/poster.jpg'" />
+                        <div class="card-info">
+                            <span class="media-title">@series.Title</span>
+                        </div>
+                    </a>
+                }
+            </div>
+        </div>
+    }
+
+    @if (!Model.Movies.Any() && !Model.Series.Any())
+    {
+        <div class="text-center mt-5">
+            <h3>No Media Found</h3>
+            <p>Please check your media folder at <code>@ViewData["MediaRoot"]</code></p>
+        </div>
+    }
+</div>

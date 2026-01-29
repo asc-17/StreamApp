@@ -1,0 +1,23 @@
+@model StreamApp.Models.Movie
+
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<div class="details-container">
+    <div class="details-poster-wrapper">
+         @{
+             var poster = !string.IsNullOrEmpty(Model.PosterPath) ? Url.Action("Image", "Video", new { path = Model.PosterPath }) : "/media/poster.jpg";
+         }
+         <img src="@poster" class="details-poster" onerror="this.src='/media/poster.jpg'" />
+    </div>
+    
+    <div class="details-info">
+        <h1>@Model.Title</h1>
+        <p class="text-muted">@Model.Year</p>
+        
+        <a href="@Url.Action("Play", "Video", new { path = Model.FilePath })" class="btn-play" tabindex="0">
+            &#9658; Play Movie
+        </a>
+    </div>
+</div>
