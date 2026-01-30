@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using StreamApp.Services;
 using System.IO;
+using System.Collections.Generic;
 
 namespace StreamApp.Controllers
 {
+    [Route("[controller]")]
     public class VideoController : Controller
     {
         private readonly MediaScannerService _scanner;
@@ -14,14 +16,10 @@ namespace StreamApp.Controllers
         }
 
         [HttpGet]
-        [Route("Video/Stream")]
+        [Route("Stream")]
         public IActionResult Stream(string path)
         {
             if (string.IsNullOrEmpty(path)) return BadRequest();
-
-            // Security warning: In production, sanitize this path or map it to an ID!
-            // For this local app, we trust the input (it will come from our own UI).
-            // But we should verify it exists.
             
             if (!System.IO.File.Exists(path))
             {
@@ -30,9 +28,6 @@ namespace StreamApp.Controllers
 
             var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             
-            // "video/x-matroska" is the standard for mkv, but some browsers play better with "video/mp4" or "video/webm"
-            // if the underlying stream is compatible. However, we'll send correct mime type.
-            // If chrome fails to play mkv, it's a codec issue, not just mime type.
             string mimeType = "video/x-matroska";
             if (path.EndsWith(".mp4")) mimeType = "video/mp4";
 
@@ -40,11 +35,11 @@ namespace StreamApp.Controllers
         }
 
         [HttpGet]
-        [Route("Video/Image")]
+        [Route("Image")]
         public IActionResult Image(string path)
         {
             if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) return NotFound();
-            // Basic mime type detection
+            
             string mime = "image/jpeg";
             if (path.EndsWith(".png")) mime = "image/png";
             
@@ -53,15 +48,50 @@ namespace StreamApp.Controllers
         }
 
         [HttpGet]
-        [Route("Video/Play")]
+        [Route("Play")]
         public IActionResult Play(string path)
         {
              if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) return NotFound();
-             // Pass path to view
+             
              ViewBag.VideoPath = Url.Action("Stream", "Video", new { path = path });
-             // We might want to pass Title too, but path is enough for basic player
              ViewBag.Title = Path.GetFileNameWithoutExtension(path);
+             
+             // Look for subtitle files in Subtitles folder next to video
+             var directory = Path.GetDirectoryName(path);
+             var fileName = Path.GetFileNameWithoutExtension(path);
+             var subtitles = new List<string>();
+             
+             if (!string.IsNullOrEmpty(directory))
+             {
+                 // Check for Subtitles subfolder
+                 var subtitlesFolder = Path.Combine(directory, "Subtitles");
+                 if (Directory.Exists(subtitlesFolder))
+                 {
+                     // Look for subtitle files with same name as video
+                     var srtFile = Path.Combine(subtitlesFolder, $"{fileName}.srt");
+                     var vttFile = Path.Combine(subtitlesFolder, $"{fileName}.vtt");
+                     
+                     if (System.IO.File.Exists(srtFile)) subtitles.Add(srtFile);
+                     if (System.IO.File.Exists(vttFile)) subtitles.Add(vttFile);
+                 }
+             }
+             
+             ViewBag.Subtitles = subtitles;
              return View();
+        }
+
+        [HttpGet]
+        [Route("Subtitle")]
+        public IActionResult Subtitle(string path)
+        {
+            if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) return NotFound();
+            
+            string mimeType = "text/plain";
+            if (path.EndsWith(".vtt")) mimeType = "text/vtt";
+            else if (path.EndsWith(".srt")) mimeType = "application/x-subrip";
+            
+            var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            return File(stream, mimeType);
         }
     }
 }

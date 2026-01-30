@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -144,9 +145,5 @@ namespace StreamApp.Services
         public Movie? GetMovie(string title) {
             return Movies.FirstOrDefault(m => m.Title == title || m.FullPath.EndsWith(title)); // Simple lookup
         }
-
-        // Helper to find playing file by some ID logic if needed, or we just pass paths insecurely (but simple for local app)
-        // For security better would indeed be hashes or cached IDs, but local app constraints: "Security: Ignore for now".
-        // Base64 encode paths in URL is a common trick.
     }
 }

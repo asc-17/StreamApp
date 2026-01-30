@@ -38,21 +38,12 @@
         .btn-control { background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; padding: 0 10px; }
         .btn-control:hover { color: #e50914; }
         
-        /* Subtitles Menu */
-        .subs-menu {
-            position: absolute; bottom: 80px; right: 20px;
-            background: rgba(0,0,0,0.9); border-radius: 4px;
-            padding: 10px; display: none;
-        }
-        .subs-menu.show { display: block; }
-        .sub-option { display: block; padding: 5px; cursor: pointer; color: #aaa; }
-        .sub-option.active { color: #fff; font-weight: bold; }
-        
     </style>
 </head>
 <body>
     <div id="video-container">
-        <video id="player" src="@ViewBag.VideoPath" autoplay playsinline></video>
+        <video id="player" src="@ViewBag.VideoPath" playsinline>
+        </video>
         
         <div id="overlay" class="overlay visible">
             <div class="top-bar">
@@ -70,31 +61,61 @@
                         <span id="timeDisplay">00:00 / 00:00</span>
                     </div>
                     <div class="right">
-                        <button class="btn-control" id="subsBtn">CC</button>
+                        <button class="btn-control" id="muteBtn">&#128266;</button>
+                        <button class="btn-control" id="settingsBtn">&#9881;</button>
                         <button class="btn-control" id="fsBtn">[ ]</button>
                     </div>
                 </div>
             </div>
             
-            <div class="subs-menu" id="subsMenu">
-                <div class="sub-option active" onclick="switchSub(-1)">Off</div>
-                <!-- tracks populated by JS -->
+            <div class="settings-panel" id="settingsPanel">
+                <div class="settings-header">Player Settings</div>
+                <div class="settings-tabs">
+                    <button class="settings-tab active" data-tab="opensubtitles">OpenSubtitles</button>
+                </div>
+                <div id="opensubtitlesTab" class="settings-content">
+                    <div class="loading" id="loadingSubtitles">Searching for subtitles...</div>
+                    <div id="subtitlesList"></div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        const videoPath = '@ViewBag.VideoFilePath';
+        const videoTitle = '@ViewBag.Title';
+        const searchTitle = '@(ViewBag.SearchTitle ?? ViewBag.Title)';
+        const season = @(ViewBag.Season?.ToString() ?? "null");
+        const episode = @(ViewBag.Episode?.ToString() ?? "null");
+        
+        // Debug output
+        console.log('=== Video Player Debug ===');
+        console.log('VideoPath:', videoPath);
+        console.log('VideoTitle:', videoTitle);
+        console.log('SearchTitle:', searchTitle);
+        console.log('Season:', season);
+        console.log('Episode:', episode);
+        console.log('Video src:', '@ViewBag.VideoPath');
+        
         const video = document.getElementById('player');
         const overlay = document.getElementById('overlay');
         const playBtn = document.getElementById('playBtn');
         const progress = document.getElementById('progress');
         const timeline = document.getElementById('timeline');
         const timeDisplay = document.getElementById('timeDisplay');
-        const subsBtn = document.getElementById('subsBtn');
-        const subsMenu = document.getElementById('subsMenu');
         const fsBtn = document.getElementById('fsBtn');
+        const muteBtn = document.getElementById('muteBtn');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsPanel = document.getElementById('settingsPanel');
+        
+        console.log('Video element:', video);
+        console.log('Video src attribute:', video.src);
         
         let hideTimeout;
+        
+        // Ensure audio is unmuted
+        video.muted = false;
+        video.volume = 1.0;
 
         function showUI() {
             overlay.classList.add('visible');
@@ -104,7 +125,6 @@
                 if (!video.paused) {
                     overlay.classList.remove('visible');
                     document.body.style.cursor = 'none';
-                    subsMenu.classList.remove('show');
                 }
             }, 3000);
         }
@@ -136,6 +156,26 @@
             clearTimeout(hideTimeout);
         });
         
+        // Detect video errors
+        video.addEventListener('error', (e) => {
+            console.error('Video error:', e);
+            const errorCode = video.error ? video.error.code : 'unknown';
+            const errorMsg = video.error ? video.error.message : 'Unknown error';
+            alert(`Video playback error (Code: ${errorCode}): ${errorMsg}\n\nThis MKV file may use a codec (like HEVC/H.265) that your browser doesn't support. Try converting to H.264.`);
+        });
+        
+        // Check if video is actually rendering
+        video.addEventListener('loadedmetadata', () => {
+            console.log('Video metadata loaded:', {
+                duration: video.duration,
+                videoWidth: video.videoWidth,
+                videoHeight: video.videoHeight
+            });
+            if (video.videoWidth === 0 || video.videoHeight === 0) {
+                console.warn('Video has no dimensions - codec may not be supported');
+            }
+        });
+        
         video.addEventListener('timeupdate', () => {
             const pct = (video.currentTime / video.duration) * 100;
             progress.style.width = pct + '%';
@@ -155,65 +195,18 @@
             else document.exitFullscreen();
         });
         
+        // Mute Toggle
+        muteBtn.addEventListener('click', () => {
+            video.muted = !video.muted;
+            muteBtn.innerHTML = video.muted ? '&#128263;' : '&#128266;';
+        });
+        
         // Formatting
         function formatTime(s) {
             if (isNaN(s)) return "00:00";
             const m = Math.floor(s / 60);
             const sec = Math.floor(s % 60);
             return m + ':' + (sec < 10 ? '0' : '') + sec;
-        }
-        
-        // Subtitles Logic
-        // Scan for text tracks
-        video.addEventListener('loadedmetadata', () => {
-             // In native MKV via browser, tracks might not show up unless extracted.
-             // But we try to look for them.
-             updateSubsList();
-        });
-        
-        function updateSubsList() {
-             // Clear existing (except Off)
-             const opts = subsMenu.querySelectorAll('.sub-option');
-             opts.forEach((o, i) => { if (i > 0) o.remove(); });
-             
-             if (video.textTracks.length === 0) {
-                 // Mocking detection if none found? 
-                 // Actually we can't do much if browser doesn't see them.
-                 // We will create a fake one just to show UI works as requested by "Player must Detect...".
-                 // In a real app we'd need side-loaded VTT.
-                 // Let's check wildly if any exist
-             }
-             
-             for (let i = 0; i < video.textTracks.length; i++) {
-                 const track = video.textTracks[i];
-                 const div = document.createElement('div');
-                 div.className = 'sub-option';
-                 div.innerText = track.label || track.language || ('Track ' + (i+1));
-                 div.onclick = () => switchSub(i);
-                 if (track.mode === 'showing') div.classList.add('active');
-                 subsMenu.appendChild(div);
-             }
-        }
-        
-        subsBtn.addEventListener('click', (e) => { 
-            e.stopPropagation();
-            subsMenu.classList.toggle('show'); 
-        });
-        
-        function switchSub(idx) {
-            for (let i = 0; i < video.textTracks.length; i++) {
-                video.textTracks[i].mode = 'disabled';
-            }
-            const opts = subsMenu.querySelectorAll('.sub-option');
-            opts.forEach(o => o.classList.remove('active'));
-            
-            if (idx >= 0) {
-                video.textTracks[idx].mode = 'showing';
-                opts[idx + 1].classList.add('active'); // +1 because of Off
-            } else {
-                opts[0].classList.add('active');
-            }
-            setTimeout(() => subsMenu.classList.remove('show'), 200);
         }
 
         // Keyboard Shortcuts
@@ -232,8 +225,166 @@
                 case 'f':
                     fsBtn.click();
                     break;
+                case 'm':
+                    muteBtn.click();
+                    break;
             }
         });
+        
+        // Settings Panel
+        let subtitlesLoaded = false;
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsPanel.classList.toggle('show');
+            if (settingsPanel.classList.contains('show') && !subtitlesLoaded) {
+                subtitlesLoaded = true;
+                // Delay to prevent UI freeze
+                setTimeout(() => searchOpenSubtitles(), 100);
+            }
+        });
+        
+        // Close settings when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!settingsPanel.contains(e.target) && e.target !== settingsBtn) {
+                settingsPanel.classList.remove('show');
+            }
+        });
+        
+        // OpenSubtitles Integration
+        async function searchOpenSubtitles() {
+            const loadingEl = document.getElementById('loadingSubtitles');
+            const listEl = document.getElementById('subtitlesList');
+            
+            loadingEl.style.display = 'block';
+            loadingEl.textContent = 'Searching for subtitles...';
+            listEl.innerHTML = '';
+            
+            try {
+                let url = `/Video/SearchSubtitles?title=${encodeURIComponent(searchTitle)}`;
+                if (season !== null) url += `&season=${season}`;
+                if (episode !== null) url += `&episode=${episode}`;
+                
+                console.log('Searching subtitles with URL:', url);
+                
+                const response = await fetch(url);
+                const result = await response.json();
+                
+                loadingEl.style.display = 'none';
+                
+                // Check for error message
+                if (result.errorMessage) {
+                    listEl.innerHTML = `<div style="text-align: center; color: #ff6b6b; padding: 20px; line-height: 1.6;">
+                        <div style="font-size: 1.2rem; margin-bottom: 10px;">??</div>
+                        <div>${result.errorMessage}</div>
+                        <div style="font-size: 0.85rem; color: #aaa; margin-top: 10px;">Searching for: "${videoTitle}"</div>
+                    </div>`;
+                    return;
+                }
+                
+                if (!result.subtitles || result.subtitles.length === 0) {
+                    listEl.innerHTML = `<div style="text-align: center; color: #aaa; padding: 20px; line-height: 1.6;">
+                        <div style="font-size: 1.2rem; margin-bottom: 10px;">??</div>
+                        <div>No subtitles found</div>
+                        <div style="font-size: 0.85rem; color: #666; margin-top: 10px;">Try renaming your file to match the movie/show title</div>
+                        <div style="font-size: 0.85rem; color: #666;">Searched for: "${videoTitle}"</div>
+                    </div>`;
+                    return;
+                }
+                
+                result.subtitles.forEach(sub => {
+                    const div = document.createElement('div');
+                    div.className = 'subtitle-item';
+                    div.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div>???? ${sub.language}</div>
+                                <div style="font-size: 0.85rem; color: #aaa; margin-top: 4px;">${sub.releaseName || sub.fileName}</div>
+                            </div>
+                            <div>
+                                <span class="subtitle-badge">? ${sub.downloads}</span>
+                                <span class="subtitle-badge">? ${sub.rating.toFixed(1)}</span>
+                            </div>
+                        </div>
+                    `;
+                    div.onclick = () => downloadSubtitle(sub.fileId, sub.languageCode);
+                    listEl.appendChild(div);
+                });
+            } catch (error) {
+                loadingEl.style.display = 'none';
+                listEl.innerHTML = `<div style="text-align: center; color: #f44; padding: 20px;">
+                    <div>Error loading subtitles</div>
+                    <div style="font-size: 0.85rem; color: #aaa; margin-top: 10px;">Check browser console (F12) for details</div>
+                </div>`;
+                console.error('Error searching subtitles:', error);
+            }
+        }
+        
+        async function downloadSubtitle(fileId, language) {
+            const loadingEl = document.getElementById('loadingSubtitles');
+            loadingEl.textContent = 'Downloading subtitle...';
+            loadingEl.style.display = 'block';
+            
+            try {
+                const response = await fetch('/Video/DownloadSubtitle', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        fileId: fileId,
+                        videoPath: videoPath,
+                        language: language
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    loadingEl.textContent = 'Subtitle downloaded! Loading...';
+                    loadSubtitleTrack(result.path);
+                    setTimeout(() => {
+                        settingsPanel.classList.remove('show');
+                        loadingEl.style.display = 'none';
+                    }, 1000);
+                } else {
+                    loadingEl.textContent = 'Failed to download subtitle';
+                    setTimeout(() => {
+                        loadingEl.style.display = 'none';
+                        searchOpenSubtitles();
+                    }, 2000);
+                }
+            } catch (error) {
+                loadingEl.textContent = 'Error downloading subtitle';
+                console.error('Error downloading subtitle:', error);
+                setTimeout(() => {
+                    loadingEl.style.display = 'none';
+                    searchOpenSubtitles();
+                }, 2000);
+            }
+        }
+        
+        function loadSubtitleTrack(subtitlePath) {
+            // Remove existing tracks
+            const tracks = video.querySelectorAll('track');
+            tracks.forEach(t => t.remove());
+            
+            // Add new track
+            const track = document.createElement('track');
+            track.kind = 'subtitles';
+            track.label = 'External';
+            track.srclang = 'en';
+            track.src = `/Video/Subtitle?path=${encodeURIComponent(subtitlePath)}`;
+            track.default = true;
+            
+            video.appendChild(track);
+            
+            // Enable the track
+            setTimeout(() => {
+                if (video.textTracks.length > 0) {
+                    video.textTracks[0].mode = 'showing';
+                }
+            }, 100);
+        }
         
         // Initial Kick
         showUI();
