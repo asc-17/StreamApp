@@ -1,6 +1,6 @@
 ﻿# StreamApp
 
-A personal media streaming application built with ASP.NET Core MVC (.NET 10) that provides a Netflix-like interface for browsing and watching your local movie and TV series collection.
+A personal media streaming application built with ASP.NET Core MVC (.NET 10) that provides a modern, polished streaming interface for browsing and watching your local movie and TV series collection.
 
 ## Features
 
@@ -10,7 +10,7 @@ A personal media streaming application built with ASP.NET Core MVC (.NET 10) tha
 - **Poster Support**: Displays custom poster images for movies and series
 
 ### 📺 Video Player
-- **Custom HTML5 Video Player**: Netflix-style player with modern UI
+- **Custom HTML5 Video Player**: Modern streaming platform-style player with clean UI
 - **Streaming Support**: HTTP range request support for smooth seeking and playback
 - **Format Support**: MKV, MP4, and other browser-compatible formats
 - **Responsive Controls**: Play/pause, seek, fullscreen, volume control
