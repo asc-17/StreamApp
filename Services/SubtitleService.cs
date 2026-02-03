@@ -9,17 +9,24 @@ using Microsoft.Extensions.Logging;
 
 using Microsoft.Extensions.Caching.Memory;
 
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
+
 namespace StreamApp.Services
 {
     public class SubtitleService
     {
         private readonly ILogger<SubtitleService> _logger;
         private readonly IMemoryCache _cache;
+        private readonly string _ffprobePath;
+        private readonly string _ffmpegPath;
 
-        public SubtitleService(ILogger<SubtitleService> logger, IMemoryCache cache)
+        public SubtitleService(ILogger<SubtitleService> logger, IMemoryCache cache, IConfiguration configuration)
         {
             _logger = logger;
             _cache = cache;
+            _ffprobePath = configuration["FFprobePath"] ?? "ffprobe";
+            _ffmpegPath = configuration["FFmpegPath"] ?? "ffmpeg";
         }
 
         public class SubtitleTrack
@@ -43,7 +50,7 @@ namespace StreamApp.Services
                 {
                 var startInfo = new ProcessStartInfo
                 {
-                    FileName = "ffprobe",
+                    FileName = _ffprobePath,
                     Arguments = $"-v error -select_streams s -show_entries stream=index,codec_name:stream_tags=language,title -of json \"{filePath}\"",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -95,7 +102,7 @@ namespace StreamApp.Services
             {
                 var startInfo = new ProcessStartInfo
                 {
-                    FileName = "ffmpeg",
+                    FileName = _ffmpegPath,
                     // -vn: no video, -an: no audio, -map 0:{streamIndex}: select specific stream, -f webvtt: output format
                     Arguments = $"-i \"{filePath}\" -map 0:{streamIndex} -f webvtt -",
                     RedirectStandardOutput = true,
