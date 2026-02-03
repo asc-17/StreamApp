@@ -2,7 +2,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddDbContext<StreamApp.Data.AppDbContext>();
 builder.Services.AddSingleton<StreamApp.Services.MediaScannerService>();
+builder.Services.AddSingleton<StreamApp.Services.SubtitleService>();
 
 var app = builder.Build();
 
@@ -28,6 +30,12 @@ app.MapControllerRoute(
 
 
 // Run initial scan
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<StreamApp.Data.AppDbContext>();
+    db.Database.EnsureCreated();
+}
+
 var scanner = app.Services.GetRequiredService<StreamApp.Services.MediaScannerService>();
 scanner.ScanMedia();
 

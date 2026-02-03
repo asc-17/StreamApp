@@ -27,7 +27,6 @@
         
         .overlay.visible .top-bar, .overlay.visible .bottom-bar { opacity: 1; }
         
-        .back-btn { background: transparent; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; }
         .title { font-size: 1.5rem; font-weight: bold; margin-left: 1rem; }
         
         .progress-container { width: 100%; height: 5px; background: #555; position: relative; cursor: pointer; transition: height 0.1s; }
@@ -35,9 +34,32 @@
         .progress-bar { height: 100%; background: #e50914; width: 0%; }
         
         .controls { display: flex; align-items: center; justify-content: space-between; }
-        .btn-control { background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; padding: 0 10px; }
+        .controls .left, .controls .right { display: flex; align-items: center; gap: 10px; }
+        .btn-control { background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; padding: 5px; display: flex; align-items: center; }
         .btn-control:hover { color: #e50914; }
+        .btn-control img { width: 32px; height: 32px; }
+        .btn-control:hover img { filter: brightness(0) invert(19%) sepia(92%) saturate(5831%) hue-rotate(354deg) brightness(93%) contrast(116%); } /* Netflix Red #E50914 from White */
         
+        .settings-panel {
+            position: absolute; bottom: 80px; right: 20px; width: 300px; max-height: 400px;
+            background: rgba(20, 20, 20, 0.95); border-radius: 8px; backdrop-filter: blur(10px);
+            display: none; flex-direction: column; overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .settings-panel.show { display: flex; }
+        .settings-header {
+            padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex; justify-content: space-between; align-items: center; font-weight: bold;
+        }
+        .close-settings { background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; }
+        #subtitlesList { overflow-y: auto; max-height: 350px; }
+        .subtitle-item {
+            padding: 12px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background 0.2s;
+        }
+        .subtitle-item:hover { background: rgba(255,255,255,0.1); }
+        .subtitle-badge {
+            font-size: 0.75rem; background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px; margin-left: 5px;
+        }
     </style>
 </head>
 <body>
@@ -47,7 +69,7 @@
         
         <div id="overlay" class="overlay visible">
             <div class="top-bar">
-                <button class="back-btn" onclick="history.back()">&#8592;</button>
+                <button class="btn-control" onclick="history.back()"><img src="~/images/back.svg" alt="Back" /></button>
                 <span class="title">@ViewBag.Title</span>
             </div>
             
@@ -57,21 +79,34 @@
                 </div>
                 <div class="controls">
                     <div class="left">
-                        <button class="btn-control" id="playBtn">&#9658;</button>
+                        <button class="btn-control" id="playBtn"><img src="~/images/play.svg" alt="Play" /></button>
+                        <button class="btn-control" id="rwBtn" title="-10s"><img src="~/images/bwd.svg" alt="-10s" /></button>
+                        <button class="btn-control" id="fwBtn" title="+10s"><img src="~/images/fwd.svg" alt="+10s" /></button>
                         <span id="timeDisplay">00:00 / 00:00</span>
                     </div>
                     <div class="right">
-                        <button class="btn-control" id="muteBtn">&#128266;</button>
-                        <button class="btn-control" id="settingsBtn">&#9881;</button>
-                        <button class="btn-control" id="fsBtn">[ ]</button>
+                        <button class="btn-control" id="muteBtn"><img src="~/images/unmute.svg" alt="Volume" /></button>
+                        <button class="btn-control" id="settingsBtn"><img src="~/images/setting.svg" alt="Settings" /></button>
+                        <button class="btn-control" id="fsBtn"><img src="~/images/FullScr.svg" alt="Fullscreen" /></button>
                     </div>
                 </div>
+            </div>
+            
+            <!-- Settings Panel -->
+            <div class="settings-panel" id="settingsPanel">
+                <div class="settings-header">
+                    <span>Subtitles</span>
+                    <button class="close-settings" onclick="document.getElementById('settingsPanel').classList.remove('show')">&times;</button>
+                </div>
+                <div id="loadingSubtitles" style="text-align: center; padding: 20px; color: #aaa; display: none;">Loading...</div>
+                <div id="subtitlesList"></div>
             </div>
         </div>
     </div>
 
     <script>
-        const videoPath = '@ViewBag.VideoFilePath';
+        // Use JSON serialization to safely embed the string with backslashes
+        const videoPath = @Json.Serialize(ViewBag.VideoFilePath);
         const videoTitle = '@ViewBag.Title';
         const searchTitle = '@(ViewBag.SearchTitle ?? ViewBag.Title)';
         const season = @(ViewBag.Season?.ToString() ?? "null");
@@ -80,15 +115,12 @@
         // Debug output
         console.log('=== Video Player Debug ===');
         console.log('VideoPath:', videoPath);
-        console.log('VideoTitle:', videoTitle);
-        console.log('SearchTitle:', searchTitle);
-        console.log('Season:', season);
-        console.log('Episode:', episode);
-        console.log('Video src:', '@ViewBag.VideoPath');
         
         const video = document.getElementById('player');
         const overlay = document.getElementById('overlay');
         const playBtn = document.getElementById('playBtn');
+        const rwBtn = document.getElementById('rwBtn');
+        const fwBtn = document.getElementById('fwBtn');
         const progress = document.getElementById('progress');
         const timeline = document.getElementById('timeline');
         const timeDisplay = document.getElementById('timeDisplay');
@@ -97,14 +129,73 @@
         const settingsBtn = document.getElementById('settingsBtn');
         const settingsPanel = document.getElementById('settingsPanel');
         
-        console.log('Video element:', video);
-        console.log('Video src attribute:', video.src);
-        
         let hideTimeout;
         
         // Ensure audio is unmuted
         video.muted = false;
         video.volume = 1.0;
+
+        // Progress Saving Function
+        function saveProgress() {
+            if (video.currentTime > 5) { // Only save if watched more than 5 seconds
+                console.log('Saving progress:', video.currentTime);
+                fetch('/Progress/Update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: videoPath, time: video.currentTime }),
+                    keepalive: true // Important for unload events
+                }).catch(e => console.error('Save failed', e));
+            }
+        }
+
+        // Restore Progress
+        video.addEventListener('loadedmetadata', async () => {
+             console.log('Video metadata loaded:', {
+                duration: video.duration,
+                videoWidth: video.videoWidth,
+                videoHeight: video.videoHeight
+            });
+
+            if (video.videoWidth === 0) console.warn('Video has no dimensions - codec may not be supported');
+
+            try {
+                const response = await fetch(`/Progress/Get?path=${encodeURIComponent(videoPath)}`);
+                const data = await response.json();
+                if (data.time > 0) {
+                    console.log('Restoring progress:', data.time);
+                    video.currentTime = data.time;
+                }
+            } catch (e) {
+                console.error('Failed to load progress', e);
+            }
+        });
+        
+        // Save on Time Update (Interval)
+        let lastSaveTime = 0;
+        video.addEventListener('timeupdate', () => {
+            const pct = (video.currentTime / video.duration) * 100;
+            progress.style.width = pct + '%';
+            timeDisplay.textContent = formatTime(video.currentTime) + ' / ' + formatTime(video.duration || 0);
+
+            // Save every 10 seconds
+            const now = Date.now();
+            if (now - lastSaveTime > 10000 && !video.paused) {
+                lastSaveTime = now;
+                saveProgress();
+            }
+        });
+
+        // Save on Pause
+        video.addEventListener('pause', () => {
+            playBtn.innerHTML = '<img src="/images/play.svg" alt="Play" />'; 
+            overlay.classList.add('visible');
+            clearTimeout(hideTimeout);
+            saveProgress(); // Update immediately on pause
+        });
+
+        // Save on Close/Navigate
+        window.addEventListener('blur', () => saveProgress());
+        window.addEventListener('beforeunload', () => saveProgress());
 
         function showUI() {
             overlay.classList.add('visible');
@@ -131,18 +222,21 @@
             else video.pause();
         }
         
+        // Seek Functions
+        function seek(seconds) {
+            video.currentTime += seconds;
+            showUI();
+        }
+        
         playBtn.addEventListener('click', togglePlay);
         video.addEventListener('click', togglePlay);
+        rwBtn.addEventListener('click', () => seek(-10));
+        fwBtn.addEventListener('click', () => seek(10));
         
         // Update UI
         video.addEventListener('play', () => {
-            playBtn.innerHTML = '&#10074;&#10074;'; // Pause icon
+            playBtn.innerHTML = '<img src="/images/pause.svg" alt="Pause" />';
             showUI();
-        });
-        video.addEventListener('pause', () => {
-            playBtn.innerHTML = '&#9658;'; // Play icon
-            overlay.classList.add('visible');
-            clearTimeout(hideTimeout);
         });
         
         // Detect video errors
@@ -151,24 +245,6 @@
             const errorCode = video.error ? video.error.code : 'unknown';
             const errorMsg = video.error ? video.error.message : 'Unknown error';
             alert(`Video playback error (Code: ${errorCode}): ${errorMsg}\n\nThis MKV file may use a codec (like HEVC/H.265) that your browser doesn't support. Try converting to H.264.`);
-        });
-        
-        // Check if video is actually rendering
-        video.addEventListener('loadedmetadata', () => {
-            console.log('Video metadata loaded:', {
-                duration: video.duration,
-                videoWidth: video.videoWidth,
-                videoHeight: video.videoHeight
-            });
-            if (video.videoWidth === 0 || video.videoHeight === 0) {
-                console.warn('Video has no dimensions - codec may not be supported');
-            }
-        });
-        
-        video.addEventListener('timeupdate', () => {
-            const pct = (video.currentTime / video.duration) * 100;
-            progress.style.width = pct + '%';
-            timeDisplay.textContent = formatTime(video.currentTime) + ' / ' + formatTime(video.duration || 0);
         });
         
         // Seek
@@ -187,14 +263,19 @@
         // Mute Toggle
         muteBtn.addEventListener('click', () => {
             video.muted = !video.muted;
-            muteBtn.innerHTML = video.muted ? '&#128263;' : '&#128266;';
+            muteBtn.innerHTML = video.muted ? '<img src="/images/mute.svg" alt="Muted" />' : '<img src="/images/unmute.svg" alt="Volume" />';
         });
         
         // Formatting
         function formatTime(s) {
             if (isNaN(s)) return "00:00";
-            const m = Math.floor(s / 60);
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
             const sec = Math.floor(s % 60);
+            
+            if (h > 0) {
+                return h + ':' + (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+            }
             return m + ':' + (sec < 10 ? '0' : '') + sec;
         }
 
