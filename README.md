@@ -1,178 +1,106 @@
 ﻿# StreamApp
 
-A personal media streaming application built with ASP.NET Core MVC (.NET 10) that provides a modern, polished streaming interface for browsing and watching your local movie and TV series collection.
+A lightweight, personal media streaming server built with **ASP.NET Core MVC (NET 10)**. Designed for local network streaming of your Movie and TV Series collection with a clean, modern interface.
+
+> **Note**: StreamApp uses **Direct Play** for maximum performance. It natively supports **MKV containers**, but relies on your browser for **video decoding**. Ensure your files use compatible codecs (like H.264) as no transcoding occurs.
 
 ## Features
 
 ### 🎬 Media Management
-- **Automatic Media Scanning**: Scans your local media folders and organizes movies and TV series automatically
-- **Smart Organization**: Parses folder structures to detect series names, seasons, and episodes
-- **Poster Support**: Displays custom poster images for movies and series
+- **Automated Scanning**: Scans configured folders for Movies and TV Series at startup.
+- **Smart Parsing**: Detects seasons and episodes from folder structures.
+- **Metadata**: Parses file names for titles/years and displays `poster.jpg` if present.
 
-### 📺 Video Player
-- **Custom HTML5 Video Player**: Modern streaming platform-style player with clean UI
-- **Streaming Support**: HTTP range request support for smooth seeking and playback
-- **Format Support**: MKV, MP4, and other browser-compatible formats
-- **Responsive Controls**: Play/pause, seek, fullscreen, volume control
-- **Auto-hide UI**: Controls automatically hide during playback
+### 📺 Playback & Streaming
+- **Smart MKV Streaming**: Specialized server-side handling for `.mkv` containers. Uses HTTP Byte-Range requests to enable smooth seeking and playback of large MKV files that typically fail on standard web servers.
+- **HTML5 Custom Player**: Polished UI with auto-hiding controls, play/pause, seek, and volume management.
+- **Resume Playback**: Automatically saves your watch progress (per video) so you can resume where you left off.
+- **Embedded Subtitles**: Extracts and streams embedded subtitles (SRT/VTT) from MKV files (requires FFmpeg).
+- **Direct Streaming**: Zero-transcoding pipeline for maximum performance.
 
-### 📝 Subtitle Support
-- **Local Subtitle Loading**: Automatically loads subtitles from a `Subtitles` folder
-- **Format Support**: SRT and VTT subtitle formats
-- **Auto-matching**: Subtitles are matched by filename to the corresponding video
-
-### ⌨️ Keyboard Shortcuts
-- `Space` / `K` - Play/Pause
-- `F` - Toggle Fullscreen
-- `M` - Mute/Unmute
-- `←` - Seek backward 10 seconds
-- `→` - Seek forward 10 seconds
-
-## Folder Structure
-
-Your media files should be organized as follows:
-
-```
-E:\Media\
-├── Movies\
-│   └── Movie Name\
-│       ├── Movie Name.mkv
-│       ├── poster.jpg
-│       └── Subtitles\
-│           └── Movie Name.srt
-│
-└── Series\
-    └── Series Name\
-        ├── poster.jpg
-        ├── Season 1\
-        │   ├── Episode 01.mkv
-        │   ├── Episode 02.mkv
-        │   └── Subtitles\
-        │       ├── Episode 01.srt
-        │       └── Episode 02.srt
-        └── Season 2\
-            └── ...
-```
-
-### Requirements:
-- **Movies**: Each movie in its own folder with format `Movie Name`
-- **Series**: Organized by series → season → episodes
-- **Subtitles**: Place in a `Subtitles` subfolder with the same name as the video file
-- **Posters**: Optional `poster.jpg` in the movie/series root folder
-
-## Configuration
-
-Edit `appsettings.json` to set your media root path:
-
-```json
-{
-  "MediaRootPath": "E:\\Media"
-}
-```
-
-The application will automatically scan:
-- `{MediaRootPath}\Movies` for movies
-- `{MediaRootPath}\Series` for TV shows
-
-## Getting Started
-
-### Prerequisites
-- .NET 10 SDK
-- Web browser with HTML5 video support (Chrome, Edge, Firefox)
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/asc-17/StreamApp.git
-cd StreamApp
-```
-
-2. Configure your media path in `appsettings.json`
-
-3. Run the application:
-```bash
-dotnet run
-```
-
-4. Open your browser and navigate to `https://localhost:7193`
-
-## Technology Stack
-
-- **Framework**: ASP.NET Core MVC (.NET 10)
-- **Frontend**: Razor Views, HTML5, CSS, Vanilla JavaScript
-- **Styling**: Bootstrap 5 + Custom CSS
-- **Video**: HTML5 `<video>` element with custom controls
-- **Architecture**: MVC pattern with service layer
-
-## Project Structure
-
-```
-StreamApp/
-├── Controllers/
-│   ├── HomeController.cs      # Landing page
-│   ├── SeriesController.cs    # TV series browsing
-│   └── VideoController.cs     # Video streaming & playback
-├── Services/
-│   └── MediaScannerService.cs # Media folder scanning
-├── Models/
-│   └── MediaModels.cs         # Movie, Series, Episode models
-├── Views/
-│   ├── Home/
-│   │   └── Index.cshtml       # Main landing page
-│   ├── Series/
-│   │   └── Details.cshtml     # Series details & episodes
-│   └── Video/
-│       └── Play.cshtml        # Video player page
-└── wwwroot/                   # Static assets
-```
-
-## Features in Detail
-
-### Video Streaming
-- Uses ASP.NET Core's `FileStreamResult` with range processing
-- Enables seeking in large video files without loading the entire file
-- Supports multiple concurrent streams
-
-### Media Scanning
-- Automatically runs on application startup
-- Regex-based parsing for series names, season numbers, and episode numbers
-- Supports various naming conventions (S01E01, Episode 01, etc.)
-
-### User Interface
-- Clean, modern design inspired by streaming platforms
-- Grid layout for media browsing
-- Responsive design (works on desktop and tablets)
-- Smooth transitions and hover effects
-
-## Known Limitations
-
-- **Browser Codec Support**: Some MKV files may not play if they use codecs not supported by the browser (e.g., HEVC/H.265)
-  - Solution: Convert videos to H.264/AAC for maximum compatibility
-- **Security**: Designed for local/private network use only
-- **Authentication**: No user authentication (suitable for single-user/trusted network scenarios)
-
-## Future Enhancements
-
-Potential features for future development:
-- [ ] Watch progress tracking
-- [ ] Recently watched section
-- [ ] Search functionality
-- [ ] Multiple subtitle language support
-- [ ] Mobile responsive design improvements
-- [ ] Thumbnail preview on seek
-- [ ] Episode auto-play (next episode)
-
-## License
-
-This is a personal project for local media streaming. Use at your own discretion.
-
-## Contributing
-
-This is a personal project, but suggestions and improvements are welcome via issues or pull requests.
+### 🛠 Technical Highlights
+- **Framework**: ASP.NET Core 10 MVC
+- **Database**: SQLite (for tracking watch progress)
+- **Frontend**: Vanilla JavaScript (no heavy frameworks), Bootstrap 5
+- **Backend**: C# Service Layer for media scanning and subtitle extraction
 
 ---
 
-**Note**: This application is designed for streaming your personal media collection on a local network. Ensure you have the legal right to possess and stream any media files you use with this application.
+## Prerequisites
 
+1.  **.NET 10.0 SDK** (Preview/RC depending on availability)
+2.  **FFmpeg & FFprobe**: Required for subtitle extraction.
+    *   Download from [ffmpeg.org](https://ffmpeg.org/download.html).
+    *   Ensure `ffmpeg.exe` and `ffprobe.exe` are available.
+3.  **Modern Browser**: Chrome, Edge, or Firefox (must support HTML5 Video).
 
+---
+
+## Configuration
+
+The application is configured via `appsettings.json`. You must specify your media root directory and the paths to FFmpeg tools.
+
+```json
+{
+  "MediaRootPath": "E:\\Media",
+  "FFmpegPath": "C:\\path\\to\\ffmpeg.exe",
+  "FFprobePath": "C:\\path\\to\\ffprobe.exe"
+}
+```
+
+### Folder Structure Expectation
+The scanner expects a specific structure to organize media correctly:
+
+```
+MediaRoot/
+├── Movies/
+│   └── Movie Name (2024)/
+│       ├── Movie.mkv
+│       └── poster.jpg
+│
+└── Series/
+    └── Series Name/
+        ├── poster.jpg
+        └── Season 01/
+            ├── Episode 01.mkv
+            └── Episode 02.mkv
+```
+
+---
+
+## Setup & Run
+
+1.  **Clone the Repository**
+    ```bash
+    git clone https://github.com/asc-17/StreamApp.git
+    cd StreamApp
+    ```
+
+2.  **Update Configuration**
+    Modify `appsettings.json` with your actual paths.
+
+3.  **Run the Application**
+    ```bash
+    dotnet run
+    ```
+    *The app will perform an initial scan of your media folders on startup.*
+
+4.  **Access in Browser**
+    Navigate to `https://localhost:7193` (or the port specified in console).
+
+---
+
+## Limitations
+
+-   **Subtitle Loading Delay**: Due to real-time FFmpeg extraction, subtitles may take **20-30 seconds** to appear after starting a video. This is a loading time only; once loaded, subtitles are perfectly synced with the audio.
+-   **No Transcoding**: Files with unsupported codecs (like heavy HEVC/H.265 profiles on some browsers) may fail to play or have no video. Use H.264/AAC for best compatibility.
+-   **No Authentication**: The app is open. Intended for use on a trusted local network only.
+-   **Subtitle Support**: Currently only supports **embedded MKV subtitles**. External `.srt` file support is under development.
+
+## Future Enhancements
+-   [ ] External `.srt` file support
+-   [ ] OpenSubtitles integration
+-   [ ] Multi-user support
+
+## License
+Personal Project. Source code provided as-is.
