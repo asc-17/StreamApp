@@ -3,3 +3,4 @@ obj/
 *.zip
 .vs/
 Properties/
+*.user

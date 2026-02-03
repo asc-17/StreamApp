@@ -61,7 +61,13 @@ namespace StreamApp.Services
                 using var process = new Process { StartInfo = startInfo };
                 process.Start();
                 string output = await process.StandardOutput.ReadToEndAsync();
+                string error = await process.StandardError.ReadToEndAsync();
                 await process.WaitForExitAsync();
+
+                if (process.ExitCode != 0)
+                {
+                    _logger.LogWarning("ffprobe exited with code {Code}. Error: {Error}. Arguments: {Args}", process.ExitCode, error, startInfo.Arguments);
+                }
 
                 if (process.ExitCode == 0 && !string.IsNullOrEmpty(output))
                 {
