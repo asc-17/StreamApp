@@ -7,15 +7,19 @@ using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
+using Microsoft.Extensions.Caching.Memory;
+
 namespace StreamApp.Services
 {
     public class SubtitleService
     {
         private readonly ILogger<SubtitleService> _logger;
+        private readonly IMemoryCache _cache;
 
-        public SubtitleService(ILogger<SubtitleService> logger)
+        public SubtitleService(ILogger<SubtitleService> logger, IMemoryCache cache)
         {
             _logger = logger;
+            _cache = cache;
         }
 
         public class SubtitleTrack
@@ -28,9 +32,15 @@ namespace StreamApp.Services
 
         public async Task<List<SubtitleTrack>> GetSubtitleTracksAsync(string filePath)
         {
-            var tracks = new List<SubtitleTrack>();
-            try
+            const int CacheDurationMinutes = 60 * 24; // Cache for 24 hours
+            
+            return await _cache.GetOrCreateAsync($"subtitle_tracks_{filePath.GetHashCode()}", async entry =>
             {
+                entry.SlidingExpiration = TimeSpan.FromMinutes(CacheDurationMinutes);
+                
+                var tracks = new List<SubtitleTrack>();
+                try
+                {
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "ffprobe",
@@ -76,6 +86,7 @@ namespace StreamApp.Services
             }
 
             return tracks;
+            });
         }
 
         public Stream ExtractSubtitleStream(string filePath, int streamIndex)

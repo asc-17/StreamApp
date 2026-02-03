@@ -101,7 +101,8 @@ namespace StreamApp.Controllers
         [Route("Subtitles")]
         public async Task<IActionResult> GetVideoSubtitles(string path)
         {
-             if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) return NotFound();
+             if (string.IsNullOrEmpty(path)) return Json(new { error = "Path is empty" });
+             if (!System.IO.File.Exists(path)) return Json(new { error = "File not found on server", checkedPath = path });
 
              // 1. Internal MKV Subtitles
              var internalTracks = await _subtitleService.GetSubtitleTracksAsync(path);
@@ -134,9 +135,10 @@ namespace StreamApp.Controllers
              if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) return NotFound();
              
              var stream = _subtitleService.ExtractSubtitleStream(path, index);
-             if (stream == Stream.Null) return NotFound();
+             if (stream == System.IO.Stream.Null) return NotFound();
              
              return File(stream, "text/vtt");
         }
+
     }
 }

@@ -5,6 +5,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<StreamApp.Data.AppDbContext>();
 builder.Services.AddSingleton<StreamApp.Services.MediaScannerService>();
 builder.Services.AddSingleton<StreamApp.Services.SubtitleService>();
+builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 

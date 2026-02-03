@@ -57,8 +57,74 @@
             padding: 12px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background 0.2s;
         }
         .subtitle-item:hover { background: rgba(255,255,255,0.1); }
+        :root {
+            --sub-size: 1.5rem;
+            --sub-color: #ffffff;
+            --sub-bg: rgba(0, 0, 0, 0.7);
+            --sub-shadow: none;
+            --sub-edge: none;
+        }
+        
+        /* WebVTT Cue Styling */
+        video::cue {
+            font-size: var(--sub-size);
+            color: var(--sub-color);
+            background-color: var(--sub-bg);
+            text-shadow: var(--sub-shadow);
+            /* text-shadow handles edge styles slightly differently in standard CSS, 
+               but ::cue support varies. We focus on shadows/colors. */
+        }
+
         .subtitle-badge {
             font-size: 0.75rem; background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px; margin-left: 5px;
+        }
+        
+        /* Tabbed Settings Panel */
+        .settings-panel {
+            position: absolute; bottom: 80px; right: 20px; width: 350px; max-height: 500px;
+            background: rgba(20, 20, 20, 0.95); border-radius: 8px; backdrop-filter: blur(10px);
+            display: none; flex-direction: column; overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            font-size: 0.9rem;
+        }
+        
+        .tab-header {
+            display: flex; border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .tab-btn {
+            flex: 1; padding: 15px; background: none; border: none; color: #aaa; cursor: pointer; font-weight: bold;
+            transition: color 0.2s, background 0.2s;
+        }
+        .tab-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+        .tab-btn.active { color: #fff; border-bottom: 2px solid #e50914; }
+        
+        .tab-content { display: none; overflow-y: auto; max-height: 400px; padding: 10px; }
+        .tab-content.active { display: block; }
+        
+        /* Style Controls */
+        .style-group { margin-bottom: 15px; }
+        .style-label { color: #aaa; margin-bottom: 8px; display: block; font-size: 0.8rem; text-transform: uppercase; }
+        .style-options { display: flex; gap: 8px; flex-wrap: wrap; }
+        
+        .style-btn {
+            background: rgba(255,255,255,0.1); border: 1px solid transparent; color: #fff; 
+            padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem;
+        }
+        .style-btn:hover { background: rgba(255,255,255,0.2); }
+        .style-btn.active { background: #e50914; border-color: #e50914; }
+        
+        .preview-box {
+            margin-top: 15px; padding: 20px; text-align: center; 
+            background-image: url('/images/poster_placeholder.jpg'); /* Optional background */
+            background-size: cover; border-radius: 4px; position: relative; height: 100px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .preview-text {
+            font-family: sans-serif;
+            font-size: var(--sub-size);
+            color: var(--sub-color);
+            background-color: var(--sub-bg);
+            text-shadow: var(--sub-shadow);
         }
     </style>
 </head>
@@ -86,6 +152,7 @@
                     </div>
                     <div class="right">
                         <button class="btn-control" id="muteBtn"><img src="~/images/unmute.svg" alt="Volume" /></button>
+                        <button class="btn-control" id="ccBtn"><img src="~/images/capoff.svg" alt="Subtitles" /></button>
                         <button class="btn-control" id="settingsBtn"><img src="~/images/setting.svg" alt="Settings" /></button>
                         <button class="btn-control" id="fsBtn"><img src="~/images/FullScr.svg" alt="Fullscreen" /></button>
                     </div>
@@ -94,12 +161,44 @@
             
             <!-- Settings Panel -->
             <div class="settings-panel" id="settingsPanel">
-                <div class="settings-header">
-                    <span>Subtitles</span>
-                    <button class="close-settings" onclick="document.getElementById('settingsPanel').classList.remove('show')">&times;</button>
+                <div class="tab-header">
+                    <button class="tab-btn active" onclick="openTab('tracks')">Subtitles</button>
+                    <button class="tab-btn" onclick="openTab('style')">Settings</button>
+                    <button style="padding: 0 15px; background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;" onclick="toggleSettings()">&times;</button>
                 </div>
-                <div id="loadingSubtitles" style="text-align: center; padding: 20px; color: #aaa; display: none;">Loading...</div>
-                <div id="subtitlesList"></div>
+                
+                <!-- Tracks Tab -->
+                <div id="tab-tracks" class="tab-content active">
+                    <div id="loadingSubtitles" style="text-align: center; padding: 20px; color: #aaa; display: none;">Loading...</div>
+                    <div id="subtitlesList"></div>
+                </div>
+                
+                <!-- Style Tab -->
+                <div id="tab-style" class="tab-content">
+                    <div class="style-group">
+                        <span class="style-label">Size</span>
+                        <div class="style-options">
+                            <button class="style-btn" onclick="setSubtitleSize('1rem', this)">Small</button>
+                            <button class="style-btn active" onclick="setSubtitleSize('1.5rem', this)">Normal</button>
+                            <button class="style-btn" onclick="setSubtitleSize('2rem', this)">Large</button>
+                            <button class="style-btn" onclick="setSubtitleSize('3rem', this)">Huge</button>
+                        </div>
+                    </div>
+                    
+                    <div class="style-group">
+                        <span class="style-label">Preset</span>
+                        <div class="style-options">
+                            <button class="style-btn active" onclick="setSubtitlePreset('box', this)">White Box</button>
+                            <button class="style-btn" onclick="setSubtitlePreset('shadow', this)">White Shadow</button>
+                            <button class="style-btn" onclick="setSubtitlePreset('yellow', this)">Yellow Shadow</button>
+                            <button class="style-btn" onclick="setSubtitlePreset('transparent', this)">Transparent</button>
+                        </div>
+                    </div>
+                    
+                    <div class="preview-box">
+                        <span class="preview-text">Subtitle Preview</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -126,6 +225,7 @@
         const timeDisplay = document.getElementById('timeDisplay');
         const fsBtn = document.getElementById('fsBtn');
         const muteBtn = document.getElementById('muteBtn');
+        const ccBtn = document.getElementById('ccBtn');
         const settingsBtn = document.getElementById('settingsBtn');
         const settingsPanel = document.getElementById('settingsPanel');
         
@@ -256,8 +356,20 @@
         
         // Fullscreen
         fsBtn.addEventListener('click', () => {
-            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-            else document.exitFullscreen();
+            if (!document.fullscreenElement) {
+                 document.documentElement.requestFullscreen();
+            }
+            else {
+                 document.exitFullscreen();
+            }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) {
+                fsBtn.innerHTML = '<img src="/images/min.svg" alt="Exit Fullscreen" />';
+            } else {
+                fsBtn.innerHTML = '<img src="/images/FullScr.svg" alt="Fullscreen" />';
+            }
         });
         
         // Mute Toggle
@@ -301,17 +413,133 @@
             }
         });
         
+        // Toggle Subtitles (CC Button)
+        ccBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const track = video.textTracks[0];
+            if (track) {
+                if (track.mode === 'showing') {
+                    track.mode = 'hidden';
+                    ccBtn.innerHTML = '<img src="/images/capoff.svg" alt="Subtitles" />';
+                    showToast('Subtitles Off');
+                    localStorage.setItem('subtitles-enabled', 'false');
+                } else {
+                    track.mode = 'showing';
+                    ccBtn.innerHTML = '<img src="/images/capon.svg" alt="Subtitles" />';
+                    showToast('Subtitles On');
+                    localStorage.setItem('subtitles-enabled', 'true');
+                }
+            } else {
+                 // No tracks loaded, try opening settings
+                 toggleSettings();
+            }
+        });
+        
+        function showToast(msg) {
+             // Simple toast could be implemented here, or just rely on button visual state
+             console.log(msg);
+        }
+
         // Settings Panel
         let subtitlesLoaded = false;
-        settingsBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
+        
+        function toggleSettings() {
             settingsPanel.classList.toggle('show');
             if (settingsPanel.classList.contains('show') && !subtitlesLoaded) {
                 subtitlesLoaded = true;
-                // Delay to prevent UI freeze
-                setTimeout(() => searchOpenSubtitles(), 100);
+                setTimeout(() => loadSubtitles(), 100);
             }
+        }
+        
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSettings();
         });
+        
+        // Tab Switching
+        window.openTab = function(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById('tab-' + tabName).classList.add('active');
+            // Hacky way to find button, simple for now
+            const btns = document.querySelectorAll('.tab-btn');
+            if (tabName === 'tracks') btns[0].classList.add('active');
+            else btns[1].classList.add('active');
+        };
+        
+        // Subtitle Styling Logic
+        function updateStyles() {
+            const root = document.documentElement;
+            // Get from localStorage or default
+            const size = localStorage.getItem('sub-size') || '1.5rem';
+            const preset = localStorage.getItem('sub-preset') || 'box';
+            
+            applySize(size);
+            applyPreset(preset);
+            
+            // Update UI buttons
+            updateButtonState('setSubtitleSize', size);
+            updateButtonState('setSubtitlePreset', preset);
+        }
+        
+        function updateButtonState(funcName, value) {
+             // Find buttons calling this function with this value
+             // This is a bit manual but works without a framework
+             const btns = document.querySelectorAll(`.style-btn[onclick*="${funcName}('${value}"]`);
+             if (btns.length > 0) {
+                 btns[0].parentElement.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+                 btns[0].classList.add('active');
+             }
+        }
+
+        window.setSubtitleSize = function(size, btn) {
+            localStorage.setItem('sub-size', size);
+            applySize(size);
+            
+            btn.parentElement.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        };
+        
+        window.setSubtitlePreset = function(preset, btn) {
+            localStorage.setItem('sub-preset', preset);
+            applyPreset(preset);
+            
+             btn.parentElement.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+             btn.classList.add('active');
+        };
+        
+        function applySize(size) {
+            document.documentElement.style.setProperty('--sub-size', size);
+        }
+        
+        function applyPreset(preset) {
+            const root = document.documentElement;
+            // Defaults (Box)
+            let color = '#ffffff';
+            let bg = 'rgba(0,0,0,0.7)';
+            let shadow = 'none';
+            
+            if (preset === 'shadow') {
+                bg = 'transparent';
+                shadow = '2px 2px 2px #000';
+            } else if (preset === 'yellow') {
+                color = '#ffeb3b';
+                bg = 'transparent';
+                shadow = '2px 2px 2px #000';
+            } else if (preset === 'transparent') {
+                bg = 'rgba(0,0,0,0.3)';
+                shadow = '1px 1px 1px #000';
+            }
+            
+            root.style.setProperty('--sub-color', color);
+            root.style.setProperty('--sub-bg', bg);
+            root.style.setProperty('--sub-shadow', shadow);
+        }
+        
+        // Initialize styles
+        updateStyles();
+
         
         // Close settings when clicking outside
         document.addEventListener('click', (e) => {
@@ -320,120 +548,108 @@
             }
         });
         
-        // OpenSubtitles Integration
-        async function searchOpenSubtitles() {
+        // Subtitle Logic
+        async function loadSubtitles(autoLoad = false) {
             const loadingEl = document.getElementById('loadingSubtitles');
             const listEl = document.getElementById('subtitlesList');
             
+            let hasInternal = false;
+            
             loadingEl.style.display = 'block';
-            loadingEl.textContent = 'Searching for subtitles...';
+            loadingEl.textContent = 'Loading subtitles...';
             listEl.innerHTML = '';
             
             try {
-                let url = `/Video/SearchSubtitles?title=${encodeURIComponent(searchTitle)}`;
-                if (season !== null) url += `&season=${season}`;
-                if (episode !== null) url += `&episode=${episode}`;
-                
-                console.log('Searching subtitles with URL:', url);
-                
-                const response = await fetch(url);
-                const result = await response.json();
-                
-                loadingEl.style.display = 'none';
-                
-                // Check for error message
-                if (result.errorMessage) {
-                    listEl.innerHTML = `<div style="text-align: center; color: #ff6b6b; padding: 20px; line-height: 1.6;">
-                        <div style="font-size: 1.2rem; margin-bottom: 10px;">??</div>
-                        <div>${result.errorMessage}</div>
-                        <div style="font-size: 0.85rem; color: #aaa; margin-top: 10px;">Searching for: "${videoTitle}"</div>
-                    </div>`;
+                // 1. Fetch from our backend (Internal + Local External)
+                const localResp = await fetch(`/Video/Subtitles?path=${encodeURIComponent(videoPath)}`);
+                if (!localResp.ok) {
+                    console.error('Subtitle fetch failed:', localResp.status, localResp.statusText);
                     return;
                 }
+                const localData = await localResp.json();
                 
-                if (!result.subtitles || result.subtitles.length === 0) {
-                    listEl.innerHTML = `<div style="text-align: center; color: #aaa; padding: 20px; line-height: 1.6;">
+                
+                if (localData.error) {
+                    console.error('Backend reported error:', localData.error, localData.checkedPath);
+                } else {
+                    hasInternal = false;
+
+                // Render Internal Matches
+                if (localData.internalMatches && localData.internalMatches.length > 0) {
+                     hasInternal = true;
+                     const header = document.createElement('div');
+                     header.style.cssText = 'padding: 5px 15px; font-size: 0.8rem; color: #aaa; text-transform: uppercase; margin-top: 10px;';
+                     header.textContent = 'Internal Tracks (MKV)';
+                     listEl.appendChild(header);
+
+                     localData.internalMatches.forEach(track => {
+                        const div = document.createElement('div');
+                        div.className = 'subtitle-item';
+                        div.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div>???? ${track.language}</div>
+                                    <div style="font-size: 0.85rem; color: #aaa; margin-top: 4px;">Track ${track.index} - ${track.title || track.codec}</div>
+                                </div>
+                                <div class="subtitle-badge">Embedded</div>
+                            </div>
+                        `;
+                        div.onclick = () => loadSubtitleTrack(null, track.index);
+                        listEl.appendChild(div);
+                     });
+                }
+                
+                // Render External Matches
+                if (localData.externalMatches && localData.externalMatches.length > 0) {
+                     const header = document.createElement('div');
+                     header.style.cssText = 'padding: 5px 15px; font-size: 0.8rem; color: #aaa; text-transform: uppercase; margin-top: 10px;';
+                     header.textContent = 'Local Files';
+                     listEl.appendChild(header);
+
+                     localData.externalMatches.forEach(ext => {
+                        const div = document.createElement('div');
+                        div.className = 'subtitle-item';
+                        div.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div>???? ${ext.language}</div>
+                                    <div style="font-size: 0.85rem; color: #aaa; margin-top: 4px;">${ext.title}</div>
+                                </div>
+                                <div class="subtitle-badge">File</div>
+                            </div>
+                        `;
+                        div.onclick = () => loadSubtitleTrack(ext.path, null);
+                        listEl.appendChild(div);
+                     });
+                }
+                } // End else from localData.error check
+
+                // 2. Online search removed as per request
+                loadingEl.style.display = 'none';
+                
+                if (!hasInternal && (!localData.externalMatches || localData.externalMatches.length === 0)) {
+                     listEl.innerHTML = `<div style="text-align: center; color: #aaa; padding: 20px; line-height: 1.6;">
                         <div style="font-size: 1.2rem; margin-bottom: 10px;">??</div>
                         <div>No subtitles found</div>
-                        <div style="font-size: 0.85rem; color: #666; margin-top: 10px;">Try renaming your file to match the movie/show title</div>
-                        <div style="font-size: 0.85rem; color: #666;">Searched for: "${videoTitle}"</div>
                     </div>`;
-                    return;
+                } else if (autoLoad) {
+                     // Automatically load first available subtitle if none selected
+                     if (hasInternal) {
+                         loadSubtitleTrack(null, localData.internalMatches[0].index);
+                     } else if (localData.externalMatches && localData.externalMatches.length > 0) {
+                         loadSubtitleTrack(localData.externalMatches[0].path, null);
+                     }
                 }
-                
-                result.subtitles.forEach(sub => {
-                    const div = document.createElement('div');
-                    div.className = 'subtitle-item';
-                    div.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <div>???? ${sub.language}</div>
-                                <div style="font-size: 0.85rem; color: #aaa; margin-top: 4px;">${sub.releaseName || sub.fileName}</div>
-                            </div>
-                            <div>
-                                <span class="subtitle-badge">? ${sub.downloads}</span>
-                                <span class="subtitle-badge">? ${sub.rating.toFixed(1)}</span>
-                            </div>
-                        </div>
-                    `;
-                    div.onclick = () => downloadSubtitle(sub.fileId, sub.languageCode);
-                    listEl.appendChild(div);
-                });
+
             } catch (error) {
                 loadingEl.style.display = 'none';
-                listEl.innerHTML = `<div style="text-align: center; color: #f44; padding: 20px;">
-                    <div>Error loading subtitles</div>
-                    <div style="font-size: 0.85rem; color: #aaa; margin-top: 10px;">Check browser console (F12) for details</div>
-                </div>`;
-                console.error('Error searching subtitles:', error);
+                console.error('Error loading subtitles:', error);
             }
         }
         
-        async function downloadSubtitle(fileId, language) {
-            const loadingEl = document.getElementById('loadingSubtitles');
-            loadingEl.textContent = 'Downloading subtitle...';
-            loadingEl.style.display = 'block';
-            
-            try {
-                const response = await fetch('/Video/DownloadSubtitle', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        fileId: fileId,
-                        videoPath: videoPath,
-                        language: language
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    loadingEl.textContent = 'Subtitle downloaded! Loading...';
-                    loadSubtitleTrack(result.path);
-                    setTimeout(() => {
-                        settingsPanel.classList.remove('show');
-                        loadingEl.style.display = 'none';
-                    }, 1000);
-                } else {
-                    loadingEl.textContent = 'Failed to download subtitle';
-                    setTimeout(() => {
-                        loadingEl.style.display = 'none';
-                        searchOpenSubtitles();
-                    }, 2000);
-                }
-            } catch (error) {
-                loadingEl.textContent = 'Error downloading subtitle';
-                console.error('Error downloading subtitle:', error);
-                setTimeout(() => {
-                    loadingEl.style.display = 'none';
-                    searchOpenSubtitles();
-                }, 2000);
-            }
-        }
+        // downloadSubtitle function removed as online search is disabled
         
-        function loadSubtitleTrack(subtitlePath) {
+        function loadSubtitleTrack(subtitlePath, trackIndex) {
             // Remove existing tracks
             const tracks = video.querySelectorAll('track');
             tracks.forEach(t => t.remove());
@@ -441,9 +657,17 @@
             // Add new track
             const track = document.createElement('track');
             track.kind = 'subtitles';
-            track.label = 'External';
+            track.label = 'Default';
             track.srclang = 'en';
-            track.src = `/Video/Subtitle?path=${encodeURIComponent(subtitlePath)}`;
+            
+            if (trackIndex !== null) {
+                // Stream internal subtitle
+                track.src = `/Video/StreamSubtitle?path=${encodeURIComponent(videoPath)}&index=${trackIndex}`;
+            } else {
+                // Load local/downloaded file
+                track.src = `/Video/Subtitle?path=${encodeURIComponent(subtitlePath)}`;
+            }
+            
             track.default = true;
             
             video.appendChild(track);
@@ -451,13 +675,23 @@
             // Enable the track
             setTimeout(() => {
                 if (video.textTracks.length > 0) {
-                    video.textTracks[0].mode = 'showing';
+                    const shouldShow = localStorage.getItem('subtitles-enabled') === 'true';
+                    if (shouldShow) {
+                        video.textTracks[0].mode = 'showing';
+                        document.getElementById('ccBtn').innerHTML = '<img src="/images/capon.svg" alt="Subtitles" />';
+                    } else {
+                        video.textTracks[0].mode = 'hidden';
+                        document.getElementById('ccBtn').innerHTML = '<img src="/images/capoff.svg" alt="Subtitles" />';
+                    }
                 }
             }, 100);
         }
         
         // Initial Kick
         showUI();
+        
+        // Auto-load subtitles on start
+        loadSubtitles(true);
     </script>
 </body>
 </html>
